@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KF POS Public | A2-FIX7</title>
+<style>
+:root{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#18283c;background:#f1f5f9}*{box-sizing:border-box}body{margin:0;padding:20px 12px}main{max-width:720px;margin:auto}header,.panel{background:#fff;border:1px solid #dce4ed;border-radius:16px;padding:22px;margin-bottom:16px}h1{margin:4px 0 8px;color:#17355b}h2{margin:0 0 14px;font-size:1.2rem}.tag{color:#315d91;font-weight:700;font-size:.85rem}p{line-height:1.55}label{display:block;font-weight:700;margin:14px 0 6px}input{width:100%;border:1px solid #aebccc;border-radius:10px;padding:12px;font:inherit}button{border:0;border-radius:10px;background:#17355b;color:#fff;font:inherit;font-weight:700;padding:13px 18px;margin-top:15px;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.muted{color:#596b7c}.notice{background:#fff7e5;border:1px solid #e6c77c;border-radius:10px;padding:12px}.result{margin-top:16px;padding:14px;border-radius:10px;background:#eef4fb;white-space:pre-wrap;overflow-wrap:anywhere} .result:empty{display:none}.small{font-size:.88rem}
+</style>
+</head>
+<body><main>
+<header><div class="tag">A2-FIX7 · Ujian Cloudflare D1</div><h1>KF POS Public</h1><p>Permohonan pelanggan dan semakan status.</p><p class="notice"><strong>Versi ujian.</strong> Borang permohonan memerlukan API yang menyokong penghantaran permohonan. Kelulusan HQ belum disediakan pada halaman ini. Jangan masukkan maklumat peribadi sebenar semasa ujian.</p></header>
+<section class="panel"><h2>1. Permohonan Pelanggan</h2><p class="muted">Gunakan nama contoh sahaja. Jika API permohonan belum tersedia, sistem akan memaklumkan bahawa permohonan tidak dihantar.</p><form id="applyForm"><label for="customer">Nama pelanggan (contoh)</label><input id="customer" maxlength="80" required placeholder="Contoh: Demo 003"><label for="shop">Nama kedai (contoh)</label><input id="shop" maxlength="100" required placeholder="Contoh: Kedai Demo 003"><label for="agent">Kod agen</label><input id="agent" maxlength="30" value="AG001" required><button id="applyButton" type="submit">Hantar Permohonan</button></form><div id="applyResult" class="result" role="status" aria-live="polite"></div></section>
+<section class="panel"><h2>2. Semak Status Permohonan</h2><form id="statusForm"><label for="ref">Nombor rujukan</label><input id="ref" maxlength="100" required placeholder="Contoh: KF-DEMO-0005"><button id="statusButton" type="submit">Semak Status</button></form><div id="statusResult" class="result" role="status" aria-live="polite"></div></section>
+<section class="panel"><h2>3. Kelulusan HQ</h2><p class="notice">Fungsi kelulusan HQ belum diaktifkan. Ia memerlukan pengesahan identiti HQ pada pelayan sebelum boleh digunakan dengan selamat. Jangan meletakkan kata laluan atau kunci rahsia dalam fail HTML awam.</p></section>
+<p class="muted small">A2-FIX7 · Halaman ujian. Tiada bayaran atau pengaktifan lesen dilakukan melalui halaman ini.</p>
+</main><script>
+'use strict';
+const API='https://kf-public-api.skyzin802.workers.dev';
+const $=id=>document.getElementById(id);
+async function getJSON(response){const raw=await response.text();try{return JSON.parse(raw)}catch{return {ok:false,message:'Pelayan tidak memulangkan respons JSON yang sah.'}}}
+$('applyForm').addEventListener('submit',async event=>{
+ event.preventDefault();const button=$('applyButton');const output=$('applyResult');button.disabled=true;output.textContent='Sedang menghubungi API permohonan...';
+ try{
+  const response=await fetch(API+'/permohonan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nama_pelanggan:$('customer').value.trim(),nama_kedai:$('shop').value.trim(),kod_agen:$('agent').value.trim()})});
+  const data=await getJSON(response);
+  if(!response.ok||data.ok!==true){output.textContent='Permohonan belum berjaya dihantar. API permohonan mungkin belum disediakan. HTTP '+response.status+'.';return}
+  const reference=data.rujukan||data.pelanggan?.rujukan;
+  if(!reference){output.textContent='API memberi respons berjaya tetapi tiada nombor rujukan. Sila semak pelayan sebelum meneruskan.';return}
+  $('ref').value=reference;output.textContent='Permohonan diterima. Nombor rujukan: '+reference+'\nSimpan nombor ini untuk semakan status.';
+ }catch(error){output.textContent='Tidak dapat menghubungi API permohonan. Tiada pengesahan bahawa permohonan disimpan.'}finally{button.disabled=false}
+});
+$('statusForm').addEventListener('submit',async event=>{
+ event.preventDefault();const button=$('statusButton');const output=$('statusResult');const ref=$('ref').value.trim();button.disabled=true;output.textContent='Sedang menyemak pangkalan data...';
+ try{
+  const response=await fetch(API+'/status?rujukan='+encodeURIComponent(ref),{method:'GET',cache:'no-store'});const data=await getJSON(response);
+  if(!response.ok||data.ok!==true||!data.pelanggan){output.textContent=response.status===404?'Nombor rujukan tidak ditemui.':'Semakan tidak berjaya. HTTP '+response.status+'.';return}
+  const p=data.pelanggan;const price=typeof p.harga_lesen==='number'?new Intl.NumberFormat('ms-MY',{style:'currency',currency:'MYR'}).format(p.harga_lesen):'—';
+  output.textContent='Rujukan: '+(p.rujukan??'—')+'\nStatus: '+(p.status??'—')+'\nHarga lesen: '+price+'\nTarikh mohon: '+(p.tarikh_mohon??'—')+'\nTarikh lulus: '+(p.tarikh_lulus??'—');
+ }catch(error){output.textContent='Tidak dapat menghubungi API. Semak sambungan Internet.'}finally{button.disabled=false}
+});
+</script></body></html>
