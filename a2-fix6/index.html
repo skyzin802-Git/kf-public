@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17355b">
+  <title>KF POS Public | A2-FIX6</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:#18283c;background:#f1f5f9}
+    *{box-sizing:border-box}body{margin:0;padding:24px 14px}main{max-width:620px;margin:20px auto;background:#fff;padding:28px;border-radius:18px;box-shadow:0 8px 28px #17355b16}
+    h1{font-size:1.6rem;margin:0 0 6px;color:#17355b}h2{font-size:1.1rem;margin:0 0 14px}p{line-height:1.55}.sub{color:#526176;margin:0 0 26px}.tag{display:inline-block;background:#e8f1fb;color:#174d86;padding:5px 10px;border-radius:99px;font-size:.82rem;font-weight:700;margin-bottom:12px}
+    label{display:block;font-weight:700;margin:12px 0 8px}input{width:100%;padding:14px;font-size:1rem;border:1px solid #a7b6c7;border-radius:9px}button{background:#17355b;color:white;border:0;border-radius:9px;padding:13px 18px;font-weight:700;font-size:1rem;cursor:pointer;margin-top:12px}button:disabled{opacity:.6;cursor:wait}
+    #message{min-height:24px;margin-top:18px}#result{display:none;margin-top:20px;padding:18px;border:1px solid #d6e0ea;border-radius:12px;background:#f8fafc}dl{display:grid;grid-template-columns:145px 1fr;gap:10px;margin:0}dt{font-weight:700;color:#45566b}dd{margin:0;overflow-wrap:anywhere}.note{font-size:.88rem;color:#607086;margin-top:24px}.status{font-weight:800} @media(max-width:430px){main{padding:20px}dl{grid-template-columns:1fr;gap:4px}dd{margin-bottom:9px}}
+  </style>
+</head>
+<body>
+<main>
+  <span class="tag">A2-FIX6 · Cloudflare D1</span>
+  <h1>KF POS Public</h1>
+  <p class="sub">Semakan status permohonan pelanggan</p>
+  <h2>Semak Status Permohonan</h2>
+  <p>Masukkan nombor rujukan untuk mendapatkan status yang direkodkan dalam pangkalan data.</p>
+  <form id="statusForm">
+    <label for="rujukan">Nombor rujukan</label>
+    <input id="rujukan" name="rujukan" placeholder="Contoh: KF-DEMO-0005" maxlength="100" autocomplete="off" required>
+    <button id="checkButton" type="submit">Semak Status</button>
+  </form>
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="result" aria-label="Keputusan semakan">
+    <h2>Maklumat Permohonan</h2>
+    <dl>
+      <dt>Rujukan</dt><dd id="outRef"></dd>
+      <dt>Status</dt><dd id="outStatus" class="status"></dd>
+      <dt>Harga lesen</dt><dd id="outPrice"></dd>
+      <dt>Tarikh mohon</dt><dd id="outApplied"></dd>
+      <dt>Tarikh lulus</dt><dd id="outApproved"></dd>
+    </dl>
+  </section>
+  <p class="note">Paparan ini hanya menyemak rekod. Ia tidak menghantar permohonan baharu atau meluluskan permohonan. Jangan masukkan maklumat sulit.</p>
+</main>
+<script>
+  'use strict';
+  const API = 'https://kf-public-api.skyzin802.workers.dev';
+  const form = document.getElementById('statusForm');
+  const button = document.getElementById('checkButton');
+  const message = document.getElementById('message');
+  const result = document.getElementById('result');
+  const setText = (id, value) => { document.getElementById(id).textContent = value == null || value === '' ? '—' : String(value); };
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const ref = document.getElementById('rujukan').value.trim();
+    result.style.display = 'none';
+    if (!ref) { message.textContent = 'Sila masukkan nombor rujukan.'; return; }
+    button.disabled = true;
+    message.textContent = 'Sedang menyemak pangkalan data…';
+    try {
+      const response = await fetch(API + '/status?rujukan=' + encodeURIComponent(ref), {method:'GET',cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok || !data.ok || !data.pelanggan) {
+        message.textContent = response.status === 404 ? 'Nombor rujukan tidak ditemui dalam pangkalan data.' : (data.error || 'Semakan tidak berjaya. Sila cuba lagi.');
+        return;
+      }
+      const p = data.pelanggan;
+      setText('outRef', p.rujukan);
+      setText('outStatus', p.status);
+      setText('outPrice', typeof p.harga_lesen === 'number' ? new Intl.NumberFormat('ms-MY',{style:'currency',currency:'MYR'}).format(p.harga_lesen) : '—');
+      setText('outApplied', p.tarikh_mohon);
+      setText('outApproved', p.tarikh_lulus);
+      result.style.display = 'block';
+      message.textContent = 'Rekod berjaya ditemui.';
+    } catch (error) {
+      message.textContent = 'Tidak dapat menghubungi API. Semak sambungan Internet dan cuba lagi.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
